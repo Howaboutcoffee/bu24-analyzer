@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ======================================================
-# BU-24 带宽利用率分析器 (彩色无 Emoji 终端版)
+# BU-24 带宽利用率分析器 (APT 自动安装版)
+# 适用: Debian / Ubuntu / Deepin / Kali 等系统
 # ======================================================
 
 # --- 环境检查 ---
@@ -13,14 +14,11 @@ else
     echo -e "\033[1;32m[OK]\033[0m Python3 已安装。"
 fi
 
+# --- 检查 numpy ---
 if ! python3 -c "import numpy" &>/dev/null; then
-    echo -e "\033[1;33m[WARN]\033[0m 检测到未安装 numpy，正在安装..."
-    if ! command -v pip3 &>/dev/null; then
-        echo -e "\033[1;34m[INFO]\033[0m 安装 pip3..."
-        apt update && apt install -y python3-pip || { echo "安装 pip3 失败"; exit 1; }
-    fi
-    pip3 install -q numpy || { echo "安装 numpy 失败"; exit 1; }
-    echo -e "\033[1;32m[OK]\033[0m numpy 安装完成。"
+    echo -e "\033[1;33m[WARN]\033[0m 检测到未安装 numpy，尝试使用 apt 安装..."
+    apt update && apt install -y python3-numpy || { echo "安装 numpy 失败"; exit 1; }
+    echo -e "\033[1;32m[OK]\033[0m numpy 已安装。"
 else
     echo -e "\033[1;32m[OK]\033[0m numpy 已存在。"
 fi
@@ -56,7 +54,6 @@ peak_util = peak_bw / max_bw * 100
 expand_bw_threshold = 0.85 * max_bw
 expand_traffic_tb = total_tb * (expand_bw_threshold / peak_bw)
 
-# --- 彩色输出逻辑 ---
 PURPLE = "\033[1;35m"
 GREEN = "\033[1;32m"
 YELLOW = "\033[1;33m"
