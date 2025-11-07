@@ -62,12 +62,12 @@ YELLOW = "\033[1;33m"
 RED = "\033[1;31m"
 RESET = "\033[0m"
 
-if peak_util >= 90:
-    suggestion = f"{RED}[ALERT]{RESET} 峰值利用率 {peak_util:.1f}% → 建议立即扩容 500M。"
-elif peak_util >= 85:
-    suggestion = f"{YELLOW}[WARN]{RESET} 峰值利用率 {peak_util:.1f}% → 可观察或适度扩容。"
+if peak_util >= 95:
+    suggestion = f"{RED}[ALERT]{RESET} 峰值利用率 {peak_util:.1f}% → 长期超95%请考虑扩容。"
+elif peak_util >= 90:
+    suggestion = f"{YELLOW}[WARN]{RESET} 峰值利用率 {peak_util:.1f}% → 利用率较高，建议持续观察。"
 else:
-    suggestion = f"{GREEN}[OK]{RESET} 峰值利用率 {peak_util:.1f}% → 暂无需扩容。"
+    suggestion = f"{GREEN}[OK]{RESET} 峰值利用率 {peak_util:.1f}% → 正常范围。"
 
 print(f"{PURPLE}╔══════════════════════════════════════════════╗{RESET}")
 print(f"{PURPLE}║              BU-24 模型分析报告              ║{RESET}")
