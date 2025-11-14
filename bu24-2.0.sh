@@ -51,24 +51,22 @@ export MAX_BW="${max_bw}"
 export MODE="${mode}"
 export USED_TB="${used_tb:-}"
 export TOTAL_TB="${total_tb:-}"
-
-# --- 执行 Python 分析 ---
 python3 - <<'PYCODE'
 import os
 import numpy as np
 from datetime import datetime, timezone, timedelta
 
-# 读取环境变量（已经由 Bash 设置）
+# === 环境变量 ===
 max_bw = float(os.environ.get('MAX_BW', '1500'))
 mode = int(os.environ.get('MODE', '1'))
 
 used_tb_env = os.environ.get('USED_TB', '').strip()
 total_tb_env = os.environ.get('TOTAL_TB', '').strip()
 
-used_tb = float(used_tb_env) if used_tb_env != '' else None
-total_tb_provided = float(total_tb_env) if total_tb_env != '' else None
+used_tb = float(used_tb_env) if used_tb_env else None
+total_tb_provided = float(total_tb_env) if total_tb_env else None
 
-# 小时比例模型（保持你现有的分布）
+# === 每小时流量分布（固定模型） ===
 ratios = np.array([
     0.074152, 0.055637, 0.053687, 0.038074, 0.029172, 0.020483,
     0.019464, 0.022966, 0.034680, 0.042502, 0.049233, 0.051580,
@@ -77,49 +75,51 @@ ratios = np.array([
 ])
 ratios = ratios / np.sum(ratios)
 
-# 预测逻辑
+# === 模型核心逻辑 ===
 predicted_today_tb = None
+now = datetime.now(timezone(timedelta(hours=8)))  # 上海时区
+now_hour = now.hour
 
 if mode == 1:
-    # 实时模式：需要 used_tb（当前已用量），按已过小时比例外推全天
-    now = datetime.now(timezone(timedelta(hours=8)))  # 上海时间
-    now_hour = now.hour
     if used_tb is None:
         raise SystemExit("实时模式需要输入当前已用流量（TB）。")
-    # 如果当前时间正好是整点，包含当前小时的比例用于估算
+
     current_ratio = float(np.sum(ratios[: now_hour + 1 ]))
+    future_ratio = float(np.sum(ratios[now_hour + 1:]))
+
     if current_ratio <= 0:
-        predicted_today_tb = used_tb  # 兜底
+        predicted_today_tb = used_tb
     else:
-        predicted_today_tb = used_tb / current_ratio
+        # --- 改进预测：考虑未来夜间加权 ---
+        avg_rate_so_far = used_tb / current_ratio
+        # 夜间比例较大时，未来部分稍放大预测 (夜间未来部分加权 0.3系数)
+        weighted_future = future_ratio * (1 + 0.3 * (future_ratio / (current_ratio + 1e-6)))
+        predicted_today_tb = used_tb + avg_rate_so_far * weighted_future
+
     total_tb = predicted_today_tb
 else:
-    # 模式2：直接使用用户输入的昨日值作为计算基准（不做今日预测）
     if total_tb_provided is None:
         raise SystemExit("模式2需要输入昨日总流量（TB）。")
     total_tb = total_tb_provided
 
-# 计算带宽指标（保持既有换算方式）
-# avg_bw 单位：Mbps
+# === 计算带宽指标 ===
 avg_bw = (total_tb * 8e6) / (3600 * 24)
 util = avg_bw / max_bw * 100.0
-# hourly_bw 近似各小时带宽（Mbps）
-hourly_bw = avg_bw * (ratios / (1.0/24.0))
+hourly_bw = avg_bw * (ratios / (1.0 / 24.0))
 peak_bw = float(np.max(hourly_bw))
 peak_util = peak_bw / max_bw * 100.0
 
 expand_bw_threshold = 0.95 * max_bw
-# 估算达到 95% 时对应的日流量（粗略）
 expand_traffic_tb = total_tb * (expand_bw_threshold / peak_bw) if peak_bw > 0 else float('nan')
 
-# 输出颜色
+# === 输出格式 ===
 PURPLE = "\033[1;35m"
 GREEN = "\033[1;32m"
 YELLOW = "\033[1;33m"
 RED = "\033[1;31m"
 RESET = "\033[0m"
 
-# 扩容建议
+# 建议
 if peak_util >= 95:
     suggestion = f"{RED}[ALERT]{RESET} 峰值利用率 {peak_util:.1f}% → 长期超95%请考虑扩容。"
 elif peak_util >= 90:
@@ -127,19 +127,17 @@ elif peak_util >= 90:
 else:
     suggestion = f"{GREEN}[OK]{RESET} 峰值利用率 {peak_util:.1f}% → 正常范围。"
 
-# 打印报告（若为模式1，额外打印“预测今日流量”）
+# === 打印报告 ===
 print(f"{PURPLE}╔══════════════════════════════════════════════╗{RESET}")
 print(f"{PURPLE}║              BU-24 模型分析报告              ║{RESET}")
 print(f"{PURPLE}╚══════════════════════════════════════════════╝{RESET}")
 print(f"最大带宽：{max_bw:.0f} Mbps")
 
-# 每日流量（对模式1来说这是预测值；模式2为昨日值）
 mode_label = '实时预测' if mode == 1 else '完整分析'
 print(f"每日流量：{total_tb:.2f} TB（模式：{mode_label}）")
 
-# 仅模式1显示“预测今日流量”这一额外行（即用户要求）
 if mode == 1 and predicted_today_tb is not None:
-    print(f"预测今日流量（基于当前已用量与时段分布）：{predicted_today_tb:.2f} TB")
+    print(f"预测今日流量（考虑夜间加权分布）：{predicted_today_tb:.2f} TB")
 
 print(f"平均带宽：{avg_bw:.1f} Mbps（{util:.1f}% 利用率）")
 print(f"峰值带宽：{peak_bw:.1f} Mbps（{peak_util:.1f}% 利用率）")
