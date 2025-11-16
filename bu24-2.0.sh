@@ -134,10 +134,14 @@ print(f"{PURPLE}╚════════════════════�
 print(f"最大带宽：{max_bw:.0f} Mbps")
 
 mode_label = '实时预测' if mode == 1 else '完整分析'
-print(f"每日流量：{total_tb:.2f} TB（模式：{mode_label}）")
+if mode == 1:
+    print(f"当前已用：{used_tb:.2f} TB（模式：{mode_label}）")
+else:
+    print(f"每日流量：{total_tb:.2f} TB（模式：{mode_label}）")
+
 
 if mode == 1 and predicted_today_tb is not None:
-    print(f"预测今日流量（考虑夜间加权分布）：{predicted_today_tb:.2f} TB")
+    print(f"预测今日流量：{predicted_today_tb:.2f} TB")
 
 print(f"平均带宽：{avg_bw:.1f} Mbps（{util:.1f}% 利用率）")
 print(f"峰值带宽：{peak_bw:.1f} Mbps（{peak_util:.1f}% 利用率）")
