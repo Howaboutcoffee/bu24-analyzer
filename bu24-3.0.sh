@@ -33,16 +33,16 @@ echo "  2. 昨日总流量"
 read -e -p "请输入选项编号 [默认 1]: " mode
 mode=${mode:-1}
 
-read -e -p "请输入最大带宽（Mbps，例如 1500）: " max_bw
+read -e -p "请输入最大带宽（Mbps）: " max_bw
 max_bw=${max_bw:-1500}
 
 if [ "$mode" == "1" ]; then
     echo -e "\033[1;34m[INFO]\033[0m 将系统时区设置为上海时间（仅尝试）..."
     timedatectl set-timezone Asia/Shanghai 2>/dev/null || true
-    read -e -p "请输入当前已用流量（TB，例如 3.2）: " used_tb
+    read -e -p "请输入当前已用流量（TB）: " used_tb
     # 模式1会基于 used_tb 推算今日总流量（预测）
 else
-    read -e -p "请输入昨日总流量（TB，例如 6.5）: " total_tb
+    read -e -p "请输入昨日总流量（TB）: " total_tb
     # 模式2不需要预测今日流量
 fi
 
